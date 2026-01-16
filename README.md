@@ -11,3 +11,7 @@ Paymesh is a decentralized payment platform that automates group payment distrib
 - Automated Group Distribution: Any payment sent to your group's child contract instantly splits according to preset percentages - no manual intervention needed
 - Group Management: Update group settings, extend usage limits, and manage subscription cycles as needed
 - Tracking & Details: Monitor all transactions with complete transparency, view distribution history, and track group payment flows in real-time
+
+## Design
+
+[View Figma Prototype](https://www.figma.com/design/zD33uUXS5EthAYdjMI2SBB/Paymesh?node-id=463-3&p=f&t=q598aeVf9C7Qqqqs-0)
