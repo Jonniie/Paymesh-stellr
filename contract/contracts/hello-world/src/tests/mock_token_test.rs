@@ -38,7 +38,7 @@ fn test_mock_token() {
     assert_eq!(client.balance(&user2), 200);
     assert_eq!(client.total_supply(), 1000);
 
-    // Test Insufficient Balance (Expect failure logic would need try_transfer or panic check, 
+    // Test Insufficient Balance (Expect failure logic would need try_transfer or panic check,
     // but for simplicity in this basic test we just test happy paths and logic)
     // To test panics we can use verify_panics if desired, but this covers basic happy path.
 }
