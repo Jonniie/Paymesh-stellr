@@ -23,9 +23,13 @@ pub struct AutoShareContract;
 
 #[contractimpl]
 impl AutoShareContract {
-    /// Initializes the contract with an admin address.
-    pub fn initialize(env: Env, admin: Address) {
-        autoshare_logic::set_admin(env, admin).unwrap();
+    // ============================================================================
+    // Admin Management
+    // ============================================================================
+
+    /// Initializes the contract admin. Can only be called once.
+    pub fn initialize_admin(env: Env, admin: Address) {
+        autoshare_logic::initialize_admin(env, admin);
     }
 
     /// Pauses the contract. Only admin can call.
@@ -43,16 +47,22 @@ impl AutoShareContract {
         autoshare_logic::get_paused_status(&env)
     }
 
-    /// Creates a new AutoShare plan.
-    /// Requirement: create_autoshare should store data and emit an event.
+    // ============================================================================
+    // AutoShare Group Management
+    // ============================================================================
+
+    /// Creates a new AutoShare plan with payment.
+    /// Requirement: create_autoshare should store data, accept payment, and emit an event.
     pub fn create(
         env: Env,
         id: BytesN<32>,
         name: String,
         creator: Address,
-        members: Vec<base::types::GroupMember>,
+        usage_count: u32,
+        payment_token: Address,
     ) {
-        autoshare_logic::create_autoshare(env, id, name, creator, members).unwrap();
+        autoshare_logic::create_autoshare(env, id, name, creator, usage_count, payment_token)
+            .unwrap();
     }
 
     /// Update members of an existing AutoShare plan.
@@ -129,6 +139,93 @@ impl AutoShareContract {
     /// Returns the contract's balance for a specified token.
     pub fn get_contract_balance(env: Env, token: Address) -> i128 {
         autoshare_logic::get_contract_balance(env, token)
+    }
+
+    // ============================================================================
+    // Token Management
+    // ============================================================================
+
+    /// Adds a supported payment token (admin only).
+    pub fn add_supported_token(env: Env, token: Address, admin: Address) {
+        autoshare_logic::add_supported_token(env, token, admin).unwrap();
+    }
+
+    /// Removes a supported payment token (admin only).
+    pub fn remove_supported_token(env: Env, token: Address, admin: Address) {
+        autoshare_logic::remove_supported_token(env, token, admin).unwrap();
+    }
+
+    /// Returns all supported payment tokens.
+    pub fn get_supported_tokens(env: Env) -> Vec<Address> {
+        autoshare_logic::get_supported_tokens(env)
+    }
+
+    /// Checks if a token is supported.
+    pub fn is_token_supported(env: Env, token: Address) -> bool {
+        autoshare_logic::is_token_supported(env, token)
+    }
+
+    // ============================================================================
+    // Payment Configuration
+    // ============================================================================
+
+    /// Sets the usage fee (admin only).
+    pub fn set_usage_fee(env: Env, fee: u32, admin: Address) {
+        autoshare_logic::set_usage_fee(env, fee, admin).unwrap();
+    }
+
+    /// Returns the current usage fee.
+    pub fn get_usage_fee(env: Env) -> u32 {
+        autoshare_logic::get_usage_fee(env)
+    }
+
+    // ============================================================================
+    // Subscription Management
+    // ============================================================================
+
+    /// Tops up a group's subscription with additional usages.
+    pub fn topup_subscription(
+        env: Env,
+        id: BytesN<32>,
+        additional_usages: u32,
+        payment_token: Address,
+        payer: Address,
+    ) {
+        autoshare_logic::topup_subscription(env, id, additional_usages, payment_token, payer)
+            .unwrap();
+    }
+
+    // ============================================================================
+    // Payment History
+    // ============================================================================
+
+    /// Returns all payment history for a user.
+    pub fn get_user_payment_history(env: Env, user: Address) -> Vec<base::types::PaymentHistory> {
+        autoshare_logic::get_user_payment_history(env, user)
+    }
+
+    /// Returns all payment history for a group.
+    pub fn get_group_payment_history(env: Env, id: BytesN<32>) -> Vec<base::types::PaymentHistory> {
+        autoshare_logic::get_group_payment_history(env, id)
+    }
+
+    // ============================================================================
+    // Usage Tracking
+    // ============================================================================
+
+    /// Returns the remaining usages for a group.
+    pub fn get_remaining_usages(env: Env, id: BytesN<32>) -> u32 {
+        autoshare_logic::get_remaining_usages(env, id).unwrap()
+    }
+
+    /// Returns the total usages paid for a group.
+    pub fn get_total_usages_paid(env: Env, id: BytesN<32>) -> u32 {
+        autoshare_logic::get_total_usages_paid(env, id).unwrap()
+    }
+
+    /// Reduces the usage count by 1 (dummy function for testing).
+    pub fn reduce_usage(env: Env, id: BytesN<32>) {
+        autoshare_logic::reduce_usage(env, id).unwrap();
     }
 }
 

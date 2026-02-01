@@ -4,6 +4,19 @@ use crate::test_utils::{create_test_group, setup_test_env};
 use crate::{AutoShareContract, AutoShareContractClient};
 
 use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String, Vec};
+fn create_helper(
+    client: &AutoShareContractClient,
+    id: &BytesN<32>,
+    name: &String,
+    creator: &Address,
+    members: &Vec<GroupMember>,
+    test_env: &crate::test_utils::TestEnv,
+) {
+    let token = test_env.mock_tokens.get(0).unwrap().clone();
+    crate::test_utils::mint_tokens(&test_env.env, &token, creator, 10000000);
+    client.create(id, name, creator, &1u32, &token);
+    client.update_members(id, creator, members);
+}
 
 #[test]
 fn test_create_and_get_success() {
@@ -218,7 +231,7 @@ fn test_create_fails_invalid_percentage() {
         percentage: 50, // Sum = 50 != 100
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 }
 
 #[test]
@@ -233,7 +246,7 @@ fn test_create_fails_empty_members() {
 
     let members = Vec::new(&test_env.env);
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 }
 
 #[test]
@@ -257,7 +270,7 @@ fn test_create_fails_duplicate_member() {
         percentage: 50,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 }
 
 #[test]
@@ -276,7 +289,7 @@ fn test_update_members_success() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &initial_members);
+    create_helper(&client, &id, &name, &creator, &initial_members, &test_env);
 
     // Verify initial
     let initial_res = client.get(&id);
@@ -319,7 +332,7 @@ fn test_update_members_unauthorized() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     let other_user = Address::generate(&test_env.env);
     client.update_members(&id, &other_user, &members);
@@ -341,7 +354,7 @@ fn test_update_members_invalid_percentage() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     let mut bad_members = Vec::new(&test_env.env);
     bad_members.push_back(GroupMember {
@@ -369,7 +382,7 @@ fn test_is_group_member() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     assert!(client.is_group_member(&id, &member1));
     assert!(!client.is_group_member(&id, &member2));
@@ -502,7 +515,7 @@ fn test_get_group_members_empty() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     let members_res = client.get_group_members(&id);
     assert_eq!(members_res.len(), 1);
@@ -544,7 +557,7 @@ fn test_add_group_member_success() {
         percentage: 50,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Update to 33/33/34 split to make room for third member
     let mut updated_members = Vec::new(&test_env.env);
@@ -605,7 +618,7 @@ fn test_add_duplicate_member() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Try to add the same member again - should fail
     client.add_group_member(&id, &member1, &50);
@@ -641,7 +654,7 @@ fn test_add_member_invalid_total_percentage() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Try to add another member with 50% (total would be 150%) - should fail
     let member2 = Address::generate(&test_env.env);
@@ -665,7 +678,7 @@ fn test_add_multiple_members_sequentially() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Update to 25% for first member
     let mut updated_members = Vec::new(&test_env.env);
@@ -731,7 +744,7 @@ fn test_add_member_to_inactive_group() {
         percentage: 50,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Update to 33/33/34 to make room for third member
     let mut updated_members = Vec::new(&test_env.env);
@@ -800,7 +813,7 @@ fn test_group_created_as_active() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Verify group is active by default
     assert!(client.is_group_active(&id));
@@ -821,7 +834,7 @@ fn test_creator_can_deactivate_group() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Deactivate the group
     client.deactivate_group(&id, &creator);
@@ -845,7 +858,7 @@ fn test_creator_can_activate_group() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Deactivate first
     client.deactivate_group(&id, &creator);
@@ -874,7 +887,7 @@ fn test_updating_inactive_group_fails() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Deactivate the group
     client.deactivate_group(&id, &creator);
@@ -909,7 +922,7 @@ fn test_viewing_inactive_group_works() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Deactivate the group
     client.deactivate_group(&id, &creator);
@@ -938,7 +951,7 @@ fn test_non_creator_cannot_deactivate() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Try to deactivate as non-creator - should fail
     client.deactivate_group(&id, &other_user);
@@ -961,7 +974,7 @@ fn test_non_creator_cannot_activate() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Deactivate as creator
     client.deactivate_group(&id, &creator);
@@ -986,7 +999,7 @@ fn test_deactivating_already_inactive_group_fails() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Deactivate once
     client.deactivate_group(&id, &creator);
@@ -1011,7 +1024,7 @@ fn test_activating_already_active_group_fails() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Group is already active by default, try to activate again - should fail
     client.activate_group(&id, &creator);
@@ -1060,8 +1073,8 @@ fn test_get_all_groups_includes_inactive() {
     });
 
     // Create two groups
-    client.create(&id1, &name1, &creator, &members);
-    client.create(&id2, &name2, &creator, &members);
+    create_helper(&client, &id1, &name1, &creator, &members, &test_env);
+    create_helper(&client, &id2, &name2, &creator, &members, &test_env);
 
     // Deactivate second group
     client.deactivate_group(&id2, &creator);
@@ -1094,7 +1107,7 @@ fn test_is_group_member_works_on_inactive_group() {
         percentage: 100,
     });
 
-    client.create(&id, &name, &creator, &members);
+    create_helper(&client, &id, &name, &creator, &members, &test_env);
 
     // Deactivate the group
     client.deactivate_group(&id, &creator);
@@ -1110,11 +1123,12 @@ fn test_is_group_member_works_on_inactive_group() {
 #[test]
 fn test_initialize_with_admin() {
     let env = Env::default();
+    env.mock_all_auths();
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     let retrieved_admin = client.get_admin();
     assert_eq!(retrieved_admin, admin);
@@ -1123,11 +1137,12 @@ fn test_initialize_with_admin() {
 #[test]
 fn test_get_admin() {
     let env = Env::default();
+    env.mock_all_auths();
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     let result = client.get_admin();
     assert_eq!(result, admin);
@@ -1137,13 +1152,14 @@ fn test_get_admin() {
 fn test_transfer_admin() {
     let env = Env::default();
     env.mock_all_auths();
+    env.mock_all_auths();
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let old_admin = Address::generate(&env);
     let new_admin = Address::generate(&env);
 
-    client.initialize(&old_admin);
+    client.initialize_admin(&old_admin);
     client.transfer_admin(&old_admin, &new_admin);
 
     let current_admin = client.get_admin();
@@ -1155,6 +1171,7 @@ fn test_transfer_admin() {
 fn test_transfer_admin_unauthorized() {
     let env = Env::default();
     env.mock_all_auths();
+    env.mock_all_auths();
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
 
@@ -1162,7 +1179,7 @@ fn test_transfer_admin_unauthorized() {
     let non_admin = Address::generate(&env);
     let new_admin = Address::generate(&env);
 
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
     client.transfer_admin(&non_admin, &new_admin);
 }
 
@@ -1170,11 +1187,12 @@ fn test_transfer_admin_unauthorized() {
 fn test_admin_can_pause() {
     let env = Env::default();
     env.mock_all_auths();
+    env.mock_all_auths();
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     client.pause(&admin);
     assert!(client.get_paused_status());
@@ -1184,11 +1202,12 @@ fn test_admin_can_pause() {
 fn test_admin_can_unpause() {
     let env = Env::default();
     env.mock_all_auths();
+    env.mock_all_auths();
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     client.pause(&admin);
     assert!(client.get_paused_status());
@@ -1205,12 +1224,13 @@ fn test_admin_can_unpause() {
 fn test_get_contract_balance() {
     let env = Env::default();
     env.mock_all_auths();
+    env.mock_all_auths();
 
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     // Create and initialize token
     let token_id = env.register(MockToken, ());
@@ -1234,13 +1254,14 @@ fn test_get_contract_balance() {
 fn test_admin_can_withdraw() {
     let env = Env::default();
     env.mock_all_auths();
+    env.mock_all_auths();
 
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
     let recipient = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     // Create and initialize token
     let token_id = env.register(MockToken, ());
@@ -1271,6 +1292,7 @@ fn test_admin_can_withdraw() {
 fn test_non_admin_cannot_withdraw() {
     let env = Env::default();
     env.mock_all_auths();
+    env.mock_all_auths();
 
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
@@ -1278,7 +1300,7 @@ fn test_non_admin_cannot_withdraw() {
     let admin = Address::generate(&env);
     let non_admin = Address::generate(&env);
     let recipient = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     // Create and initialize token
     let token_id = env.register(MockToken, ());
@@ -1302,13 +1324,14 @@ fn test_non_admin_cannot_withdraw() {
 fn test_withdraw_insufficient_balance() {
     let env = Env::default();
     env.mock_all_auths();
+    env.mock_all_auths();
 
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
     let recipient = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     // Create and initialize token
     let token_id = env.register(MockToken, ());
@@ -1332,13 +1355,14 @@ fn test_withdraw_insufficient_balance() {
 fn test_withdraw_zero_amount() {
     let env = Env::default();
     env.mock_all_auths();
+    env.mock_all_auths();
 
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
     let recipient = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     // Create and initialize token
     let token_id = env.register(MockToken, ());
@@ -1362,13 +1386,14 @@ fn test_withdraw_zero_amount() {
 fn test_withdraw_negative_amount() {
     let env = Env::default();
     env.mock_all_auths();
+    env.mock_all_auths();
 
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
     let recipient = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     // Create and initialize token
     let token_id = env.register(MockToken, ());
@@ -1391,6 +1416,7 @@ fn test_withdraw_negative_amount() {
 fn test_admin_functions_after_transfer() {
     let env = Env::default();
     env.mock_all_auths();
+    env.mock_all_auths();
 
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
@@ -1399,7 +1425,7 @@ fn test_admin_functions_after_transfer() {
     let new_admin = Address::generate(&env);
     let recipient = Address::generate(&env);
 
-    client.initialize(&old_admin);
+    client.initialize_admin(&old_admin);
     client.transfer_admin(&old_admin, &new_admin);
 
     // Create and initialize token
@@ -1427,6 +1453,7 @@ fn test_admin_functions_after_transfer() {
 fn test_old_admin_cannot_withdraw_after_transfer() {
     let env = Env::default();
     env.mock_all_auths();
+    env.mock_all_auths();
 
     let contract_id = env.register(AutoShareContract, ());
     let client = AutoShareContractClient::new(&env, &contract_id);
@@ -1435,7 +1462,7 @@ fn test_old_admin_cannot_withdraw_after_transfer() {
     let new_admin = Address::generate(&env);
     let recipient = Address::generate(&env);
 
-    client.initialize(&old_admin);
+    client.initialize_admin(&old_admin);
     client.transfer_admin(&old_admin, &new_admin);
 
     // Create and initialize token
@@ -1453,4 +1480,134 @@ fn test_old_admin_cannot_withdraw_after_transfer() {
 
     // Old admin should NOT be able to withdraw (should panic)
     client.withdraw(&old_admin, &token_id, &500, &recipient);
+}
+
+// ============================================================================
+// Payment System Tests (Restored from HEAD)
+// ============================================================================
+
+#[test]
+fn test_admin_initialization() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.mock_all_auths();
+    let contract_id = env.register(AutoShareContract, ());
+    let client = AutoShareContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize_admin(&admin);
+
+    // Check default usage fee is set
+    let fee = client.get_usage_fee();
+    assert_eq!(fee, 10u32);
+
+    // Check supported tokens list is empty
+    let tokens = client.get_supported_tokens();
+    assert_eq!(tokens.len(), 0);
+}
+
+#[test]
+fn test_add_and_get_supported_tokens() {
+    let test_env = setup_test_env();
+    let client = AutoShareContractClient::new(&test_env.env, &test_env.autoshare_contract);
+    client.initialize_admin(&test_env.admin);
+
+    let token_address = test_env.mock_tokens.get(0).unwrap().clone();
+    // client.add_supported_token(&token_address, &test_env.admin);
+
+    let token2 = Address::generate(&test_env.env);
+    client.add_supported_token(&token2, &test_env.admin);
+
+    let tokens = client.get_supported_tokens();
+    assert_eq!(tokens.len(), 2);
+    assert!(client.is_token_supported(&token_address));
+    assert!(client.is_token_supported(&token2));
+}
+
+#[test]
+#[should_panic]
+fn test_add_duplicate_token_fails() {
+    let test_env = setup_test_env();
+    let client = AutoShareContractClient::new(&test_env.env, &test_env.autoshare_contract);
+    client.initialize_admin(&test_env.admin);
+
+    let token_address = test_env.mock_tokens.get(0).unwrap().clone();
+    // client.add_supported_token(&token_address, &test_env.admin);
+    client.add_supported_token(&token_address, &test_env.admin);
+}
+
+#[test]
+fn test_remove_supported_token() {
+    let test_env = setup_test_env();
+    let client = AutoShareContractClient::new(&test_env.env, &test_env.autoshare_contract);
+    client.initialize_admin(&test_env.admin);
+
+    let token_address = test_env.mock_tokens.get(0).unwrap().clone();
+    // client.add_supported_token(&token_address, &test_env.admin);
+
+    client.remove_supported_token(&token_address, &test_env.admin);
+
+    let tokens = client.get_supported_tokens();
+    assert_eq!(tokens.len(), 0);
+    assert!(!client.is_token_supported(&token_address));
+}
+
+#[test]
+#[should_panic]
+fn test_remove_non_existent_token_fails() {
+    let test_env = setup_test_env();
+    let client = AutoShareContractClient::new(&test_env.env, &test_env.autoshare_contract);
+    client.initialize_admin(&test_env.admin);
+
+    let non_existent_token = Address::generate(&test_env.env);
+    client.remove_supported_token(&non_existent_token, &test_env.admin);
+}
+
+#[test]
+fn test_set_and_get_usage_fee() {
+    let test_env = setup_test_env();
+    let client = AutoShareContractClient::new(&test_env.env, &test_env.autoshare_contract);
+    client.initialize_admin(&test_env.admin);
+
+    let new_fee = 25u32;
+    client.set_usage_fee(&new_fee, &test_env.admin);
+
+    let fee = client.get_usage_fee();
+    assert_eq!(fee, new_fee);
+}
+
+#[test]
+#[should_panic]
+fn test_non_admin_cannot_set_usage_fee() {
+    let test_env = setup_test_env();
+    let client = AutoShareContractClient::new(&test_env.env, &test_env.autoshare_contract);
+    client.initialize_admin(&test_env.admin);
+
+    let non_admin = Address::generate(&test_env.env);
+    let new_fee = 25u32;
+    client.set_usage_fee(&new_fee, &non_admin);
+}
+
+#[test]
+fn test_create_group_with_payment() {
+    let test_env = setup_test_env();
+    let client = AutoShareContractClient::new(&test_env.env, &test_env.autoshare_contract);
+    client.initialize_admin(&test_env.admin);
+
+    let creator = test_env.users.get(0).unwrap().clone();
+    let token_address = test_env.mock_tokens.get(0).unwrap().clone();
+
+    // client.add_supported_token(&token_address, &test_env.admin);
+
+    crate::test_utils::mint_tokens(&test_env.env, &token_address, &creator, 10_000_000);
+
+    let id = BytesN::from_array(&test_env.env, &[1u8; 32]);
+    let name = String::from_str(&test_env.env, "Paid Group");
+    let usage_count = 50u32;
+
+    client.create(&id, &name, &creator, &usage_count, &token_address);
+
+    let details = client.get(&id);
+    assert_eq!(details.usage_count, usage_count);
+    assert_eq!(details.total_usages_paid, usage_count);
 }

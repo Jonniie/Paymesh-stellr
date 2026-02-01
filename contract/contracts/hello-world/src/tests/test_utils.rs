@@ -19,6 +19,8 @@ pub fn setup_test_env() -> TestEnv {
 
     // Deploy AutoShare contract
     let contract_id = deploy_autoshare_contract(&env, &admin);
+    let client = AutoShareContractClient::new(&env, &contract_id);
+    client.initialize_admin(&admin);
 
     // Deploy a mock token
     let token_id = deploy_mock_token(
@@ -27,7 +29,10 @@ pub fn setup_test_env() -> TestEnv {
         &String::from_str(&env, "TEST"),
     );
     let mut mock_tokens = Vec::new(&env);
-    mock_tokens.push_back(token_id);
+    mock_tokens.push_back(token_id.clone());
+
+    // Enable the mock token
+    client.add_supported_token(&token_id, &admin);
 
     TestEnv {
         env,
@@ -124,8 +129,13 @@ pub fn create_test_group(
     creator: &Address,
     members: &Vec<crate::base::types::GroupMember>,
     usages: u32,
-    _token: &Address,
+    token: &Address,
 ) -> BytesN<32> {
+    // Fund the creator
+    let fee = 10; // Default usage fee
+    let amount = (usages as i128) * (fee as i128) + 10000;
+    mint_tokens(env, token, creator, amount);
+
     let client = AutoShareContractClient::new(env, contract);
 
     let mut id_bytes = [0u8; 32];
@@ -133,7 +143,11 @@ pub fn create_test_group(
     let id = BytesN::from_array(env, &id_bytes);
     let name = String::from_str(env, "Test Group");
 
-    client.create(&id, &name, creator, members);
+    client.create(&id, &name, creator, &usages, token);
+
+    if !members.is_empty() {
+        client.update_members(&id, creator, members);
+    }
 
     id
 }

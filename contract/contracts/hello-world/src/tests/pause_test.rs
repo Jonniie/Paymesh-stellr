@@ -1,5 +1,20 @@
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+
+use crate::base::types::GroupMember;
 use crate::{AutoShareContract, AutoShareContractClient};
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{testutils::Address as _, token, Address, BytesN, Env, String};
+
+fn create_token_contract<'a>(
+    env: &Env,
+    admin: &Address,
+) -> (token::Client<'a>, token::StellarAssetClient<'a>) {
+    let contract_address = env.register_stellar_asset_contract_v2(admin.clone());
+    (
+        token::Client::new(env, &contract_address.address()),
+        token::StellarAssetClient::new(env, &contract_address.address()),
+    )
+}
 
 #[test]
 fn test_admin_can_pause() {
@@ -9,7 +24,7 @@ fn test_admin_can_pause() {
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     assert!(!client.get_paused_status());
     client.pause(&admin);
@@ -24,7 +39,7 @@ fn test_admin_can_unpause() {
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     client.pause(&admin);
     assert!(client.get_paused_status());
@@ -41,7 +56,7 @@ fn test_paused_status_returned_correctly() {
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     // Initially not paused
     assert!(!client.get_paused_status());
@@ -65,7 +80,7 @@ fn test_non_admin_cannot_pause() {
 
     let admin = Address::generate(&env);
     let non_admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     client.pause(&non_admin);
 }
@@ -80,7 +95,7 @@ fn test_non_admin_cannot_unpause() {
 
     let admin = Address::generate(&env);
     let non_admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     client.pause(&admin);
     client.unpause(&non_admin);
@@ -95,7 +110,7 @@ fn test_cannot_pause_already_paused() {
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     client.pause(&admin);
     client.pause(&admin);
@@ -110,7 +125,7 @@ fn test_cannot_unpause_not_paused() {
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
 
     client.unpause(&admin);
 }
@@ -124,14 +139,21 @@ fn test_create_fails_when_paused() {
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
+
+    // Setup token
+    let token_admin = Address::generate(&env);
+    let (token_client, token_admin_client) = create_token_contract(&env, &token_admin);
+    let token_address = token_client.address.clone();
+    client.add_supported_token(&token_address, &admin);
+
     client.pause(&admin);
 
     let creator = Address::generate(&env);
     let id = BytesN::from_array(&env, &[1u8; 32]);
     let name = String::from_str(&env, "Test Group");
-    let members = Vec::new(&env);
-    client.create(&id, &name, &creator, &members);
+    token_admin_client.mint(&creator, &10000000);
+    client.create(&id, &name, &creator, &100u32, &token_address);
 }
 
 #[test]
@@ -143,15 +165,21 @@ fn test_add_member_fails_when_paused() {
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
+
+    // Setup token
+    let token_admin = Address::generate(&env);
+    let (token_client, token_admin_client) = create_token_contract(&env, &token_admin);
+    let token_address = token_client.address.clone();
+    client.add_supported_token(&token_address, &admin);
 
     let creator = Address::generate(&env);
     let member = Address::generate(&env);
     let id = BytesN::from_array(&env, &[1u8; 32]);
     let name = String::from_str(&env, "Test Group");
-    let members = Vec::new(&env);
 
-    client.create(&id, &name, &creator, &members);
+    token_admin_client.mint(&creator, &10000000);
+    client.create(&id, &name, &creator, &100u32, &token_address);
     client.pause(&admin);
     client.add_group_member(&id, &member, &50u32);
 }
@@ -164,18 +192,20 @@ fn test_read_functions_work_when_paused() {
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
+
+    // Setup token
+    let token_admin = Address::generate(&env);
+    let (token_client, token_admin_client) = create_token_contract(&env, &token_admin);
+    let token_address = token_client.address.clone();
+    client.add_supported_token(&token_address, &admin);
 
     let creator = Address::generate(&env);
     let id = BytesN::from_array(&env, &[1u8; 32]);
     let name = String::from_str(&env, "Test Group");
-    let mut members = Vec::new(&env);
-    members.push_back(crate::base::types::GroupMember {
-        address: creator.clone(),
-        percentage: 100,
-    });
 
-    client.create(&id, &name, &creator, &members);
+    token_admin_client.mint(&creator, &10000000);
+    client.create(&id, &name, &creator, &100u32, &token_address);
     client.pause(&admin);
 
     // These should all work while paused
@@ -195,7 +225,13 @@ fn test_operations_work_after_unpause() {
     let client = AutoShareContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    client.initialize_admin(&admin);
+
+    // Setup token
+    let token_admin = Address::generate(&env);
+    let (token_client, token_admin_client) = create_token_contract(&env, &token_admin);
+    let token_address = token_client.address.clone();
+    client.add_supported_token(&token_address, &admin);
 
     client.pause(&admin);
     client.unpause(&admin);
@@ -203,14 +239,10 @@ fn test_operations_work_after_unpause() {
     let creator = Address::generate(&env);
     let id = BytesN::from_array(&env, &[1u8; 32]);
     let name = String::from_str(&env, "Test Group");
-    let mut members = Vec::new(&env);
-    members.push_back(crate::base::types::GroupMember {
-        address: creator.clone(),
-        percentage: 100,
-    });
 
+    token_admin_client.mint(&creator, &10000000);
     // Should work after unpause
-    client.create(&id, &name, &creator, &members);
+    client.create(&id, &name, &creator, &100u32, &token_address);
     let result = client.get(&id);
     assert_eq!(result.name, name);
 }

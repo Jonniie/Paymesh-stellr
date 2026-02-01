@@ -42,7 +42,18 @@ fn test_autoshare_helpers() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let contract = deploy_autoshare_contract(&env, &Address::generate(&env));
+    let admin = Address::generate(&env);
+    let contract = deploy_autoshare_contract(&env, &admin);
+    let client = crate::AutoShareContractClient::new(&env, &contract);
+    client.initialize_admin(&admin);
+
+    let token = deploy_mock_token(
+        &env,
+        &String::from_str(&env, "Test"),
+        &String::from_str(&env, "TST"),
+    );
+    client.add_supported_token(&token, &admin);
+
     let creator = Address::generate(&env);
     let mut members = Vec::new(&env);
     members.push_back(crate::base::types::GroupMember {
@@ -50,14 +61,7 @@ fn test_autoshare_helpers() {
         percentage: 100,
     });
 
-    let group_id = create_test_group(
-        &env,
-        &contract,
-        &creator,
-        &members,
-        1,
-        &Address::generate(&env), // Dummy token
-    );
+    let group_id = create_test_group(&env, &contract, &creator, &members, 1, &token);
 
     assert_group_exists(&env, &contract, &group_id);
 }
