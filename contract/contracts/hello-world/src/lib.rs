@@ -108,12 +108,7 @@ impl AutoShareContract {
 
     /// Removes a single member from a group. Only the creator can call; group must be active.
     /// After removal, remaining percentages may not sum to 100; call update_members to set a valid split.
-    pub fn remove_group_member(
-        env: Env,
-        id: BytesN<32>,
-        caller: Address,
-        member_address: Address,
-    ) {
+    pub fn remove_group_member(env: Env, id: BytesN<32>, caller: Address, member_address: Address) {
         autoshare_logic::remove_group_member(env, id, caller, member_address).unwrap();
     }
 
